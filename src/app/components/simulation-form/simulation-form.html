@@ -5,7 +5,7 @@
       <p class="subtitle">Lancez vos simulations sur vos devices IoT</p>
     </div>
 
-    <form class="simulation-form" (submit)="onSubmit($event)">
+    <form class="simulation-form" [formGroup]="simulationForm" (submit)="onSubmit($event)">
 
       <!-- Accordion Section 1 - Toujours ouverte -->
       <div class="accordion-section active">
@@ -22,57 +22,56 @@
             <input
               type="text"
               id="username"
-              name="username"
+              formControlName="username"
               placeholder="Ex: john_doe"
               class="form-input"
-              required
-              minlength="3"
-              maxlength="20"
-              pattern="[A-Za-z0-9._-]{3,20}"
-              title="3–20 caractères: lettres, chiffres, . _ -"
+              [class.error]="hasError('username')"
             />
+            <span class="error-message" *ngIf="hasError('username')">
+              {{ getErrorMessage('username') }}
+            </span>
           </div>
           <div class="form-group">
             <label for="sensorsCount">Nombre de capteurs (1–100)</label>
             <input
               type="number"
               id="sensorsCount"
-              name="sensorsCount"
+              formControlName="sensorsCount"
               placeholder="Nombre de capteurs"
               class="form-input"
-              min="1"
-              max="100"
-              value="1"
-              required
+              [class.error]="hasError('sensorsCount')"
             />
+            <span class="error-message" *ngIf="hasError('sensorsCount')">
+              {{ getErrorMessage('sensorsCount') }}
+            </span>
           </div>
           <div class="form-group">
             <label for="count">Count (1–1000)</label>
             <input
               type="number"
               id="count"
-              name="count"
+              formControlName="count"
               placeholder="Nombre d'envois"
               class="form-input"
-              min="1"
-              max="1000"
-              value="10"
-              required
+              [class.error]="hasError('count')"
             />
+            <span class="error-message" *ngIf="hasError('count')">
+              {{ getErrorMessage('count') }}
+            </span>
           </div>
           <div class="form-group">
             <label for="intervalMs">Interval (200–10000 ms)</label>
             <input
               type="number"
               id="intervalMs"
-              name="intervalMs"
+              formControlName="intervalMs"
               placeholder="Intervalle en millisecondes"
               class="form-input"
-              min="200"
-              max="10000"
-              value="200"
-              required
+              [class.error]="hasError('intervalMs')"
             />
+            <span class="error-message" *ngIf="hasError('intervalMs')">
+              {{ getErrorMessage('intervalMs') }}
+            </span>
           </div>
         </div>
       </div>
