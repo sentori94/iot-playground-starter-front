@@ -18,21 +18,60 @@
         </div>
         <div class="accordion-content" [class.collapsed]="!openSections[1]">
           <div class="form-group">
-            <label for="input1">Input 1</label>
+            <label for="username">Utilisateur</label>
             <input
               type="text"
-              id="input1"
-              placeholder="Entrez la valeur 1"
+              id="username"
+              name="username"
+              placeholder="Ex: john_doe"
               class="form-input"
+              required
+              minlength="3"
+              maxlength="20"
+              pattern="[A-Za-z0-9._-]{3,20}"
+              title="3–20 caractères: lettres, chiffres, . _ -"
             />
           </div>
           <div class="form-group">
-            <label for="input2">Input 2</label>
+            <label for="sensorsCount">Nombre de capteurs (1–100)</label>
             <input
-              type="text"
-              id="input2"
-              placeholder="Entrez la valeur 2"
+              type="number"
+              id="sensorsCount"
+              name="sensorsCount"
+              placeholder="Nombre de capteurs"
               class="form-input"
+              min="1"
+              max="100"
+              value="1"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="count">Count (1–1000)</label>
+            <input
+              type="number"
+              id="count"
+              name="count"
+              placeholder="Nombre d'envois"
+              class="form-input"
+              min="1"
+              max="1000"
+              value="10"
+              required
+            />
+          </div>
+          <div class="form-group">
+            <label for="intervalMs">Interval (200–10000 ms)</label>
+            <input
+              type="number"
+              id="intervalMs"
+              name="intervalMs"
+              placeholder="Intervalle en millisecondes"
+              class="form-input"
+              min="200"
+              max="10000"
+              value="200"
+              required
             />
           </div>
         </div>
