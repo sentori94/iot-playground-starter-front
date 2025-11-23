@@ -144,36 +144,61 @@
         {{ isSubmitting ? 'Démarrage en cours...' : 'Lancer la Simulation' }}
       </button>
 
-      <!-- Informations de capacité -->
-      <div class="alert alert-warning capacity-info" *ngIf="canStartInfo && !canStartInfo.canStart">
-        <div class="alert-content">
-          <span class="alert-icon">⚠️</span>
-          <div class="alert-text">
-            <strong>Capacité maximale atteinte</strong>
-            <div>{{ canStartInfo.currentRunning }}/{{ canStartInfo.maxAllowed }} simulations en cours • {{ canStartInfo.available }} slot(s) disponible(s)</div>
+      <!-- Informations de capacité - Toujours affichée -->
+      <div class="capacity-widget" *ngIf="canStartInfo"
+           [class.capacity-full]="!canStartInfo.canStart"
+           [class.capacity-available]="canStartInfo.canStart && canStartInfo.currentRunning > 0"
+           [class.capacity-empty]="canStartInfo.currentRunning === 0">
+        <div class="capacity-header">
+          <span class="capacity-icon">
+            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning === 0">✨</span>
+            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning > 0">📊</span>
+            <span *ngIf="!canStartInfo.canStart">⚠️</span>
+          </span>
+          <span class="capacity-title">
+            <span *ngIf="canStartInfo.currentRunning === 0">Prêt à lancer</span>
+            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning > 0">Capacité disponible</span>
+            <span *ngIf="!canStartInfo.canStart">Capacité maximale atteinte</span>
+          </span>
+        </div>
+
+        <div class="capacity-stats">
+          <div class="capacity-stat">
+            <span class="stat-label">En cours</span>
+            <span class="stat-value">{{ canStartInfo.currentRunning }}</span>
+          </div>
+          <div class="capacity-divider">/</div>
+          <div class="capacity-stat">
+            <span class="stat-label">Maximum</span>
+            <span class="stat-value">{{ canStartInfo.maxAllowed }}</span>
+          </div>
+          <div class="capacity-divider">•</div>
+          <div class="capacity-stat">
+            <span class="stat-label">Disponibles</span>
+            <span class="stat-value" [class.stat-zero]="canStartInfo.available === 0">
+              {{ canStartInfo.available }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Barre de progression de la capacité -->
+        <div class="capacity-bar-wrapper">
+          <div class="capacity-bar"
+               [style.width.%]="(canStartInfo.currentRunning / canStartInfo.maxAllowed) * 100"
+               [class.capacity-bar-full]="!canStartInfo.canStart">
           </div>
         </div>
       </div>
 
-      <div class="alert alert-info capacity-info" *ngIf="canStartInfo && canStartInfo.canStart && canStartInfo.currentRunning > 0">
-        <div class="alert-content">
-          <span class="alert-icon">ℹ️</span>
-          <div class="alert-text">
-            <strong>Capacité disponible</strong>
-            <div>{{ canStartInfo.currentRunning }}/{{ canStartInfo.maxAllowed }} simulations en cours • {{ canStartInfo.available }} slot(s) disponible(s)</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Barre de progression -->
-      <div class="progress-container" *ngIf="isRunning && progress.total > 0">
+      <!-- Barre de progression (seulement pour la simulation locale en cours) -->
+      <div class="progress-container" *ngIf="currentRunId && localRunningSimulations.has(currentRunId) && getProgress(currentRunId).total > 0">
         <div class="progress-bar-wrapper">
-          <div class="progress-bar" [style.width.%]="progress.percentage">
-            {{ progress.percentage }}%
+          <div class="progress-bar" [style.width.%]="getProgress(currentRunId).percentage">
+            {{ getProgress(currentRunId).percentage }}%
           </div>
         </div>
         <div class="progress-text">
-          {{ progress.current }} / {{ progress.total }} appels effectués
+          {{ getProgress(currentRunId).current }} / {{ getProgress(currentRunId).total }} appels effectués
         </div>
       </div>
 
@@ -198,7 +223,7 @@
       </div>
 
       <!-- Message de succès -->
-      <div class="alert alert-success" *ngIf="successMessage && !isRunning">
+      <div class="alert alert-success" *ngIf="successMessage && currentRunId && !localRunningSimulations.has(currentRunId)">
         <div class="alert-content">
           <span class="alert-icon">✅</span>
           <div class="alert-text">

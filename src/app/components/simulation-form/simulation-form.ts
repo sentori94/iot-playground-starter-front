@@ -20,13 +20,18 @@ export class SimulationForm implements OnInit, OnDestroy {
 
   simulationForm: FormGroup;
   isSubmitting = false;
-  isRunning = false;
+  localRunningSimulations = new Set<string>(); // Track multiple local runs
   currentRunId: string | null = null;
   grafanaUrl: string | null = null;
   errorMessage: string | null = null;
   successMessage: string | null = null;
-  progress = { current: 0, total: 0, percentage: 0 };
-  canStartInfo: { canStart: boolean; currentRunning: number; maxAllowed: number; available: number } | null = null;
+  progressMap = new Map<string, { current: number; total: number; percentage: number }>(); // Progress per runId
+  canStartInfo: { canStart: boolean; currentRunning: number; maxAllowed: number; available: number } = {
+    canStart: true,
+    currentRunning: 0,
+    maxAllowed: 5,
+    available: 5
+  }; // Valeurs par défaut pour afficher le widget immédiatement
 
   // Gestion des runs en cours
   runningSimulations: RunningSimulation[] = [];
@@ -66,16 +71,18 @@ export class SimulationForm implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Charger la liste des runs en cours au démarrage
-    this.loadRunningSimulations();
+    // Démarrer les chargements initiaux après que le cycle de détection soit terminé
+    setTimeout(() => {
+      this.loadRunningSimulations();
+      this.loadCapacity();
+      this.checkOrphanedSimulations();
+    }, 0);
 
-    // Vérifier si l'utilisateur a des simulations orphelines (RUNNING mais plus d'envoi)
-    this.checkOrphanedSimulations();
-
-    // Démarrer le polling toutes les 3 secondes
+    // Démarrer le polling toutes les 1 seconde pour une réactivité optimale
     this.pollingInterval = setInterval(() => {
       this.loadRunningSimulations();
-    }, 3000);
+      this.loadCapacity();
+    }, 1000);
 
     // Ajouter la protection contre la fermeture de page pendant une simulation (uniquement côté navigateur)
     if (this.isBrowser) {
@@ -99,9 +106,9 @@ export class SimulationForm implements OnInit, OnDestroy {
    * Handler pour l'événement beforeunload - prévient l'utilisateur si une simulation est en cours
    */
   private handleBeforeUnload = (event: BeforeUnloadEvent): string | void => {
-    if (this.isRunning) {
+    if (this.localRunningSimulations.size > 0) {
       // Message standard pour les navigateurs modernes
-      const message = 'Une simulation est en cours. Si vous quittez cette page, elle sera interrompue et restera en statut "RUNNING". Voulez-vous vraiment quitter ?';
+      const message = `${this.localRunningSimulations.size} simulation(s) en cours. Si vous quittez cette page, elle(s) sera/seront interrompue(s) et restera/resteront en statut "RUNNING". Voulez-vous vraiment quitter ?`;
 
       // Pour les navigateurs modernes
       event.preventDefault();
@@ -121,10 +128,28 @@ export class SimulationForm implements OnInit, OnDestroy {
       next: (runs) => {
         this.runningSimulations = runs;
         console.log(`📊 ${runs.length} simulation(s) en cours`, runs);
-        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('❌ Erreur lors du chargement des runs en cours:', error);
+      }
+    });
+  }
+
+  /**
+   * Charge les informations de capacité
+   */
+  private loadCapacity(): void {
+    this.simulationService.canStartSimulation().subscribe({
+      next: (response) => {
+        this.canStartInfo = response;
+      },
+      error: (error) => {
+        // En cas d'erreur (503 par exemple), récupérer quand même les infos
+        if (error.status === 503 && error.error) {
+          this.canStartInfo = error.error;
+        } else {
+          console.error('❌ Erreur lors du chargement de la capacité:', error);
+        }
       }
     });
   }
@@ -153,7 +178,6 @@ export class SimulationForm implements OnInit, OnDestroy {
           this.errorMessage = `⚠️ Attention : ${myOrphanedRuns.length} simulation(s) en cours détectée(s).
             Ces simulations ont été interrompues (rafraîchissement de page).
             Utilisez le bouton "Abandonner" pour les arrêter proprement.`;
-          this.cdr.detectChanges();
         }
       },
       error: (error) => {
@@ -182,7 +206,6 @@ export class SimulationForm implements OnInit, OnDestroy {
       error: (error) => {
         console.error('❌ Erreur lors de l\'abandon du run:', error);
         this.errorMessage = `Erreur lors de l'abandon: ${error.message}`;
-        this.cdr.detectChanges();
       }
     });
   }
@@ -227,6 +250,20 @@ export class SimulationForm implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Vérifie si une simulation est en cours localement (lancée depuis cet onglet)
+   */
+  isLocalSimulation(runId: string): boolean {
+    return this.localRunningSimulations.has(runId);
+  }
+
+  /**
+   * Récupère la progression d'une simulation spécifique
+   */
+  getProgress(runId: string): { current: number; total: number; percentage: number } {
+    return this.progressMap.get(runId) || { current: 0, total: 0, percentage: 0 };
+  }
+
   toggleSection(section: number) {
     // La section 1 reste toujours ouverte
     if (section === 1) return;
@@ -255,13 +292,11 @@ export class SimulationForm implements OnInit, OnDestroy {
     this.simulationService.canStartSimulation().subscribe({
       next: (canStartResponse) => {
         console.log('📊 Réponse can-start:', canStartResponse);
-        this.canStartInfo = canStartResponse;
 
         if (!canStartResponse.canStart) {
           // Impossible de démarrer
           this.errorMessage = `❌ Impossible de lancer la simulation. ${canStartResponse.currentRunning}/${canStartResponse.maxAllowed} simulations en cours. Aucun slot disponible.`;
           console.error('❌ Capacité insuffisante:', canStartResponse);
-          this.cdr.detectChanges();
           return;
         }
 
@@ -274,12 +309,10 @@ export class SimulationForm implements OnInit, OnDestroy {
 
         // Si c'est une 503, parser la réponse
         if (error.status === 503 && error.error) {
-          this.canStartInfo = error.error;
           this.errorMessage = `❌ Impossible de lancer la simulation. ${error.error.currentRunning}/${error.error.maxAllowed} simulations en cours. Aucun slot disponible.`;
         } else {
           this.errorMessage = `Erreur lors de la vérification: ${error.error?.message || error.message || 'Erreur inconnue'}`;
         }
-        this.cdr.detectChanges();
       }
     });
   }
@@ -315,7 +348,6 @@ export class SimulationForm implements OnInit, OnDestroy {
     this.grafanaUrl = null;
     this.currentRunId = null;
     this.isSubmitting = true;
-    this.progress = { current: 0, total: 0, percentage: 0 };
 
     // Appel API pour démarrer le Run
     this.simulationService.startRun(username, request).subscribe({
@@ -327,17 +359,19 @@ export class SimulationForm implements OnInit, OnDestroy {
         this.currentRunId = response.runId;
         this.grafanaUrl = response.grafanaUrl;
         this.isSubmitting = false;
-        this.isRunning = true;
+
+        // Ajouter ce run aux simulations locales en cours
+        this.localRunningSimulations.add(response.runId);
 
         console.log('📊 État après mise à jour:');
         console.log('  - currentRunId:', this.currentRunId);
         console.log('  - grafanaUrl:', this.grafanaUrl);
         console.log('  - isSubmitting:', this.isSubmitting);
-        console.log('  - isRunning:', this.isRunning);
+        console.log('  - localRunningSimulations:', Array.from(this.localRunningSimulations));
 
-        // Forcer la détection de changements
-        this.cdr.detectChanges();
-        console.log('🔄 Détection de changements forcée');
+        // Recharger immédiatement la liste et la capacité pour meilleure réactivité
+        this.loadRunningSimulations();
+        this.loadCapacity();
 
         // Lancer l'envoi des données des capteurs
         this.startSendingSensorData(username, response.runId, sensorIds, count, intervalMs);
@@ -346,7 +380,6 @@ export class SimulationForm implements OnInit, OnDestroy {
         console.error('❌ Erreur lors du démarrage du Run:', error);
         this.errorMessage = `Erreur: ${error.error?.message || error.message || 'Impossible de démarrer la simulation'}`;
         this.isSubmitting = false;
-        this.cdr.detectChanges();
       }
     });
   }
@@ -362,16 +395,20 @@ export class SimulationForm implements OnInit, OnDestroy {
     intervalMs: number
   ): void {
     const totalCalls = count * sensorIds.length;
-    this.progress.total = totalCalls;
-    this.progress.current = 0;
-    this.progress.percentage = 0;
+
+    // Initialiser la progression pour ce runId spécifique
+    this.progressMap.set(runId, {
+      current: 0,
+      total: totalCalls,
+      percentage: 0
+    });
 
     let callIndex = 0;
 
     const sendNextBatch = () => {
       if (callIndex >= count) {
         // Simulation terminée !
-        this.onSimulationComplete();
+        this.onSimulationComplete(runId);
         return;
       }
 
@@ -389,9 +426,13 @@ export class SimulationForm implements OnInit, OnDestroy {
 
       Promise.all(promises)
         .then(() => {
-          this.progress.current += sensorIds.length;
-          this.progress.percentage = Math.round((this.progress.current / this.progress.total) * 100);
-          console.log(`📊 Progression: ${this.progress.current}/${this.progress.total} (${this.progress.percentage}%)`);
+          // Mettre à jour la progression pour CE runId spécifique
+          const progress = this.progressMap.get(runId);
+          if (progress) {
+            progress.current += sensorIds.length;
+            progress.percentage = Math.round((progress.current / progress.total) * 100);
+            console.log(`📊 [${runId}] Progression: ${progress.current}/${progress.total} (${progress.percentage}%)`);
+          }
 
           // Forcer la détection de changements
           this.cdr.detectChanges();
@@ -400,9 +441,10 @@ export class SimulationForm implements OnInit, OnDestroy {
           setTimeout(sendNextBatch, intervalMs);
         })
         .catch(error => {
-          console.error('❌ Erreur lors de l\'envoi des données:', error);
+          console.error(`❌ Erreur lors de l'envoi des données pour ${runId}:`, error);
           this.errorMessage = `Erreur lors de l'envoi des données: ${error.message}`;
-          this.isRunning = false;
+          this.localRunningSimulations.delete(runId);
+          this.progressMap.delete(runId);
           this.cdr.detectChanges();
         });
     };
@@ -414,35 +456,40 @@ export class SimulationForm implements OnInit, OnDestroy {
   /**
    * Appelée quand la simulation est terminée
    */
-  private onSimulationComplete(): void {
-    console.log('✅ Simulation terminée avec succès !');
-    this.isRunning = false;
-    this.successMessage = '🎉 Simulation terminée avec succès !';
+  private onSimulationComplete(runId: string): void {
+    console.log(`✅ Simulation ${runId} terminée avec succès !`);
 
-    // Forcer la détection de changements
-    this.cdr.detectChanges();
+    // Retirer ce run des simulations locales en cours
+    this.localRunningSimulations.delete(runId);
+
+    this.successMessage = `🎉 Simulation ${runId} terminée avec succès !`;
+
+    // Recharger immédiatement la liste et la capacité pour meilleure réactivité
+    this.loadRunningSimulations();
+    this.loadCapacity();
 
     // Appeler l'API pour confirmer la fin du run
-    if (this.currentRunId) {
-      const finishData = {
-        status: 'SUCCESS',
-        message: 'Simulation completed successfully'
-      };
+    const finishData = {
+      status: 'SUCCESS',
+      message: 'Simulation completed successfully'
+    };
 
-      this.simulationService.finishRun(this.currentRunId, finishData).subscribe({
-        next: (response) => {
-          console.log('✅ Run confirmé comme terminé:', response);
-        },
-        error: (error) => {
-          console.error('⚠️ Erreur lors de la confirmation de fin du run:', error);
-          // On n'affiche pas d'erreur à l'utilisateur car la simulation s'est bien passée
-        }
-      });
-    }
+    this.simulationService.finishRun(runId, finishData).subscribe({
+      next: (response) => {
+        console.log(`✅ Run ${runId} confirmé comme terminé:`, response);
+        // Recharger encore une fois après confirmation
+        this.loadRunningSimulations();
+        this.loadCapacity();
+      },
+      error: (error) => {
+        console.error(`⚠️ Erreur lors de la confirmation de fin du run ${runId}:`, error);
+        // On n'affiche pas d'erreur à l'utilisateur car la simulation s'est bien passée
+      }
+    });
 
     // Réinitialiser la progression après 3 secondes
     setTimeout(() => {
-      this.progress = { current: 0, total: 0, percentage: 0 };
+      this.progressMap.delete(runId);
       this.cdr.detectChanges();
     }, 3000);
   }
