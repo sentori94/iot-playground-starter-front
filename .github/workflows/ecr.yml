@@ -2,9 +2,6 @@ name: Build & Push to ECR
 
 on:
   workflow_dispatch:  # Déclenchement manuel
-  push:
-    branches:
-      - main
 
 jobs:
   docker:
