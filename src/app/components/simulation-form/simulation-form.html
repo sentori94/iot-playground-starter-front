@@ -138,12 +138,32 @@
         </div>
       </div>
 
-      <button type="submit" class="btn-primary" [disabled]="isSubmitting || isRunning">
-        <span class="btn-icon" *ngIf="!isSubmitting && !isRunning">▶</span>
+      <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+        <span class="btn-icon" *ngIf="!isSubmitting">▶</span>
         <span class="btn-icon spinner" *ngIf="isSubmitting">⏳</span>
-        <span class="btn-icon" *ngIf="isRunning && !isSubmitting">🚀</span>
-        {{ isSubmitting ? 'Démarrage en cours...' : (isRunning ? 'Simulation en cours...' : 'Lancer la Simulation') }}
+        {{ isSubmitting ? 'Démarrage en cours...' : 'Lancer la Simulation' }}
       </button>
+
+      <!-- Informations de capacité -->
+      <div class="alert alert-warning capacity-info" *ngIf="canStartInfo && !canStartInfo.canStart">
+        <div class="alert-content">
+          <span class="alert-icon">⚠️</span>
+          <div class="alert-text">
+            <strong>Capacité maximale atteinte</strong>
+            <div>{{ canStartInfo.currentRunning }}/{{ canStartInfo.maxAllowed }} simulations en cours • {{ canStartInfo.available }} slot(s) disponible(s)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="alert alert-info capacity-info" *ngIf="canStartInfo && canStartInfo.canStart && canStartInfo.currentRunning > 0">
+        <div class="alert-content">
+          <span class="alert-icon">ℹ️</span>
+          <div class="alert-text">
+            <strong>Capacité disponible</strong>
+            <div>{{ canStartInfo.currentRunning }}/{{ canStartInfo.maxAllowed }} simulations en cours • {{ canStartInfo.available }} slot(s) disponible(s)</div>
+          </div>
+        </div>
+      </div>
 
       <!-- Barre de progression -->
       <div class="progress-container" *ngIf="isRunning && progress.total > 0">
@@ -186,6 +206,78 @@
             <div class="run-id" *ngIf="currentRunId">Run ID: <code>{{ currentRunId }}</code></div>
           </div>
         </div>
+      </div>
+
+      <!-- Liste des simulations en cours -->
+      <div class="running-simulations" *ngIf="runningSimulations.length > 0">
+        <h3 class="running-title">
+          <span class="pulse-dot">●</span>
+          Simulations en cours ({{ runningSimulations.length }})
+        </h3>
+
+        <div class="simulation-card" *ngFor="let sim of runningSimulations">
+          <div class="simulation-header">
+            <div class="simulation-info">
+              <span class="simulation-user">👤 {{ sim.username }}</span>
+              <span class="simulation-status" [class.status-running]="sim.status === 'RUNNING'">
+                {{ sim.status }}
+              </span>
+            </div>
+            <div class="simulation-time">
+              🕐 Démarré: {{ sim.startedAt | date:'HH:mm:ss' }}
+            </div>
+          </div>
+
+          <div class="simulation-details">
+            <div class="detail-item">
+              <span class="detail-label">Run ID:</span>
+              <code class="detail-value">{{ sim.params.runId }}</code>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Capteurs:</span>
+              <span class="detail-value">{{ sim.params.sensorIds.length }} capteur(s)</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Durée:</span>
+              <span class="detail-value">{{ sim.params.duration }}s</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Intervalle:</span>
+              <span class="detail-value">{{ sim.params.interval }}s</span>
+            </div>
+          </div>
+
+          <!-- Barre de progression de la simulation -->
+          <div class="sim-progress-container" *ngIf="sim.status === 'RUNNING'">
+            <div class="sim-progress-header">
+              <span class="sim-progress-label">Progression</span>
+              <span class="sim-progress-time">⏱️ Temps restant: {{ getRemainingTime(sim) }}</span>
+            </div>
+            <div class="sim-progress-bar-wrapper">
+              <div class="sim-progress-bar" [style.width.%]="calculateProgress(sim)">
+                {{ calculateProgress(sim) }}%
+              </div>
+            </div>
+          </div>
+
+          <div class="simulation-actions" *ngIf="sim.grafanaUrl || sim.status === 'RUNNING'">
+            <button
+              *ngIf="sim.status === 'RUNNING'"
+              class="btn-abandon"
+              (click)="abandonSimulation(sim.params.runId)"
+              title="Abandonner cette simulation">
+              🛑 Abandonner
+            </button>
+            <a *ngIf="sim.grafanaUrl" [href]="sim.grafanaUrl" target="_blank" rel="noopener" class="sim-grafana-link">
+              📊 Dashboard Grafana
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="no-simulations" *ngIf="runningSimulations.length === 0">
+        <span class="no-sim-icon">💤</span>
+        <span>Aucune simulation en cours</span>
       </div>
     </form>
   </div>

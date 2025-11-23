@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { StartRunRequest, StartRunResponse, SensorDataRequest } from '../models/simulation.model';
+import { StartRunRequest, StartRunResponse, SensorDataRequest, CanStartResponse, RunningSimulation } from '../models/simulation.model';
 
 @Injectable({
   providedIn: 'root'
@@ -10,6 +10,14 @@ export class SimulationService {
   private readonly baseUrl = 'http://localhost:8080'; // URL de votre backend Spring Boot
 
   constructor(private http: HttpClient) {}
+
+  /**
+   * Vérifie si on peut démarrer une nouvelle simulation
+   * @returns Observable contenant les informations de capacité
+   */
+  canStartSimulation(): Observable<CanStartResponse> {
+    return this.http.get<CanStartResponse>(`${this.baseUrl}/api/runs/can-start`);
+  }
 
   /**
    * Démarre un nouveau Run de simulation
@@ -65,6 +73,14 @@ export class SimulationService {
   }
 
   /**
+   * Récupère la liste des simulations en cours
+   * @returns Observable contenant la liste des runs actifs
+   */
+  getRunningSimulations(): Observable<RunningSimulation[]> {
+    return this.http.get<RunningSimulation[]>(`${this.baseUrl}/api/runs/running`);
+  }
+
+  /**
    * Génère la liste des IDs de capteurs basée sur un préfixe et un nombre
    * @param prefix - Préfixe pour les IDs (ex: "sensor")
    * @param count - Nombre de capteurs
@@ -84,4 +100,3 @@ export class SimulationService {
     return Math.round((Math.random() * (max - min) + min) * 10) / 10;
   }
 }
-

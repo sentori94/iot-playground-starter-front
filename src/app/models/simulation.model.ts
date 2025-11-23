@@ -28,3 +28,26 @@ export interface SimulationProgress {
   percentage: number;
 }
 
+export interface CanStartResponse {
+  canStart: boolean;
+  currentRunning: number;
+  maxAllowed: number;
+  available: number;
+}
+
+export interface RunningSimulation {
+  id: string;
+  username: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  params: {
+    runId: string;
+    sensorIds: string[];
+    duration: number;
+    interval: number;
+  };
+  grafanaUrl: string;
+  errorMessage: string | null;
+}
+
