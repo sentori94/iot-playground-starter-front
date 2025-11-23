@@ -1,24 +1,94 @@
-# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# ============================================
+# IoT Playground Frontend - .gitignore
+# ============================================
+
+# ============================================
+# ANGULAR / NODE.JS
+# ============================================
 
 # Compiled output
 /dist
+/dist-server
 /tmp
 /out-tsc
 /bazel-out
+/.angular
 
-# Node
+# Node modules
 /node_modules
 npm-debug.log
+yarn-debug.log
 yarn-error.log
+pnpm-debug.log
+lerna-debug.log
 
-# IDEs and editors
-.idea/
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-store
+
+# Build artifacts
+*.js.map
+*.d.ts.map
+
+# ============================================
+# ANGULAR SPECIFIC
+# ============================================
+
+# Angular cache
+.angular/cache
+.nx/cache
+
+# Angular CLI
+.angular-cli.json
+
+# E2E test results
+/e2e/*.js
+/e2e/*.map
+
+# Coverage reports
+/coverage
+/.nyc_output
+
+# ============================================
+# TESTS
+# ============================================
+
+# Test results
+/test-results
+/playwright-report
+/playwright/.cache
+testem.log
+__screenshots__/
+
+# Jest
+/coverage
+jest-*.json
+
+# Karma
+karma.conf.js
+
+# ============================================
+# ENVIRONNEMENTS & CONFIGURATION
+# ============================================
+
+# Environment files (ne pas committer les vrais secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Configuration locale
+/src/environments/environment.local.ts
+
+# AWS credentials
+.aws/
+
+# ============================================
+# IDE & ÉDITEURS
+# ============================================
 
 # Visual Studio Code
 .vscode/*
@@ -27,17 +97,231 @@ yarn-error.log
 !.vscode/launch.json
 !.vscode/extensions.json
 .history/*
+*.code-workspace
 
-# Miscellaneous
-/.angular/cache
-.sass-cache/
-/connect.lock
-/coverage
-/libpeerconnection.log
-testem.log
-/typings
-__screenshots__/
+# JetBrains IDEs (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+atlassian-ide-plugin.xml
+com_crashlytics_export_strings.xml
+crashlytics.properties
+crashlytics-build.properties
+fabric.properties
 
-# System files
+# Eclipse
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+.metadata
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# SYSTÈME D'EXPLOITATION
+# ============================================
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
 Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# DOCKER & CONTAINERISATION
+# ============================================
+
+# Docker Compose override (local)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Docker volumes
+.docker-data/
+
+# ============================================
+# LOGS & DEBUGGING
+# ============================================
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Debug
+.vscode/chrome
+node_modules.nosync
+*debug.log
+
+# ============================================
+# CACHE & TEMPORAIRES
+# ============================================
+
+# Cache directories
+.cache
+.parcel-cache
+.sass-cache/
+*.tsbuildinfo
+
+# Temporary files
+/tmp
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# Connect lock
+/connect.lock
+/libpeerconnection.log
+
+# TypeScript cache
+*.tsbuildinfo
+
+# ============================================
+# BUILD & DÉPLOIEMENT
+# ============================================
+
+# Build outputs
+/build
+/public/build
+/.next
+/.nuxt
+/.svelte-kit
+/out
+
+# Storybook
+/storybook-static
+.storybook-out
+
+# ============================================
+# SÉCURITÉ & CREDENTIALS
+# ============================================
+
+# Fichiers de credentials
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# Secrets
+secrets.json
+.secrets/
+
+# ============================================
+# DÉPENDANCES & PACKAGES
+# ============================================
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Yarn Integrity file
+.yarn-integrity
+
+# ============================================
+# DOCUMENTATION
+# ============================================
+
+# Generated documentation
+/docs/_build
+/docs/api
+
+# ============================================
+# AUTRES
+# ============================================
+
+# TypeScript
+*.tsbuildinfo
+
+# Misc
+.sass-cache
+/typings
+
+# Local Netlify folder
+.netlify
+
+# Vercel
+.vercel
+
+# Serverless
+.serverless/
+
+# FuseBox
+.fusebox/
+
+# DynamoDB Local
+.dynamodb/
+
+# TernJS
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# Temporary folders
+tmp/
+temp/
