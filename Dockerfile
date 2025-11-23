@@ -18,14 +18,10 @@ RUN npm run build:prod
 FROM nginx:1.25-alpine
 WORKDIR /usr/share/nginx/html
 
-# Créer un utilisateur non-root pour la sécurité
-RUN addgroup -g 101 -S nginx-group && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx-group -g nginx-group nginx-user
-
 # Supprimer les fichiers par défaut de Nginx
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copier les fichiers buildés depuis le build stage (sans SSR)
+# Copier les fichiers buildés depuis le build stage
 COPY --from=build /app/dist/iot-playground/browser /usr/share/nginx/html
 
 # Copier la configuration Nginx personnalisée
@@ -35,15 +31,15 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY env.sh /docker-entrypoint.d/env.sh
 RUN chmod +x /docker-entrypoint.d/env.sh
 
-# Permissions correctes
-RUN chown -R nginx-user:nginx-group /usr/share/nginx/html && \
-    chown -R nginx-user:nginx-group /var/cache/nginx && \
-    chown -R nginx-user:nginx-group /var/log/nginx && \
-    chown -R nginx-user:nginx-group /etc/nginx/conf.d && \
+# Permissions correctes (utiliser l'utilisateur nginx existant)
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d && \
     touch /var/run/nginx.pid && \
-    chown -R nginx-user:nginx-group /var/run/nginx.pid
+    chown -R nginx:nginx /var/run/nginx.pid
 
-USER nginx-user
+USER nginx
 
 EXPOSE 80
 
