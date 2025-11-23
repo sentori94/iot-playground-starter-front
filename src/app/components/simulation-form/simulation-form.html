@@ -138,10 +138,55 @@
         </div>
       </div>
 
-      <button type="submit" class="btn-primary">
-        <span class="btn-icon">▶</span>
-        Lancer la Simulation
+      <button type="submit" class="btn-primary" [disabled]="isSubmitting || isRunning">
+        <span class="btn-icon" *ngIf="!isSubmitting && !isRunning">▶</span>
+        <span class="btn-icon spinner" *ngIf="isSubmitting">⏳</span>
+        <span class="btn-icon" *ngIf="isRunning && !isSubmitting">🚀</span>
+        {{ isSubmitting ? 'Démarrage en cours...' : (isRunning ? 'Simulation en cours...' : 'Lancer la Simulation') }}
       </button>
+
+      <!-- Barre de progression -->
+      <div class="progress-container" *ngIf="isRunning && progress.total > 0">
+        <div class="progress-bar-wrapper">
+          <div class="progress-bar" [style.width.%]="progress.percentage">
+            {{ progress.percentage }}%
+          </div>
+        </div>
+        <div class="progress-text">
+          {{ progress.current }} / {{ progress.total }} appels effectués
+        </div>
+      </div>
+
+      <!-- Lien Grafana (affiché dès que disponible après le startRun) -->
+      <div class="alert alert-info grafana-alert" *ngIf="grafanaUrl">
+        <div class="alert-content">
+          <span class="alert-icon">📊</span>
+          <div class="alert-text">
+            <strong>Dashboard Grafana disponible</strong>
+            <div>Suivez vos métriques en temps réel</div>
+          </div>
+        </div>
+        <a [href]="grafanaUrl" target="_blank" rel="noopener" class="grafana-link">
+          Ouvrir le dashboard Grafana →
+        </a>
+      </div>
+
+      <!-- Message d'erreur -->
+      <div class="alert alert-error" *ngIf="errorMessage">
+        <span class="alert-icon">⚠️</span>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <!-- Message de succès -->
+      <div class="alert alert-success" *ngIf="successMessage && !isRunning">
+        <div class="alert-content">
+          <span class="alert-icon">✅</span>
+          <div class="alert-text">
+            <strong>{{ successMessage }}</strong>
+            <div class="run-id" *ngIf="currentRunId">Run ID: <code>{{ currentRunId }}</code></div>
+          </div>
+        </div>
+      </div>
     </form>
   </div>
 </div>
