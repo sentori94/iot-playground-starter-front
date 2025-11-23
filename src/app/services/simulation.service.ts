@@ -2,12 +2,13 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { StartRunRequest, StartRunResponse, SensorDataRequest, CanStartResponse, RunningSimulation } from '../models/simulation.model';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class SimulationService {
-  private readonly baseUrl = 'http://localhost:8080'; // URL de votre backend Spring Boot
+  private readonly baseUrl = environment.apiUrl; // URL configurée selon l'environnement
 
   constructor(private http: HttpClient) {}
 

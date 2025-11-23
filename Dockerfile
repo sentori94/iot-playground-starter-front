@@ -31,6 +31,10 @@ COPY --from=build /app/dist/iot-playground-starter-front/browser /usr/share/ngin
 # Copier la configuration Nginx personnalisée
 COPY nginx.conf /etc/nginx/nginx.conf
 
+# Copier le script d'injection des variables d'environnement
+COPY env.sh /docker-entrypoint.d/env.sh
+RUN chmod +x /docker-entrypoint.d/env.sh
+
 # Permissions correctes
 RUN chown -R nginx-user:nginx-group /usr/share/nginx/html && \
     chown -R nginx-user:nginx-group /var/cache/nginx && \
@@ -43,9 +47,13 @@ USER nginx-user
 
 EXPOSE 80
 
+# Variables d'environnement par défaut
+ENV API_URL=http://localhost:8080
+
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
 
-CMD ["nginx", "-g", "daemon off;"]
+# Utiliser le script env.sh comme entrypoint
+ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
 

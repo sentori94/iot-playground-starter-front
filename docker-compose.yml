@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: .
+    image: iot-playground-front:latest
+    container_name: iot-front
+    ports:
+      - "80:80"
+    environment:
+      # Configuration de l'URL du backend
+      # En local avec docker-compose
+      - API_URL=http://backend:8080
+      # Ou si le backend est sur un autre serveur
+      # - API_URL=https://api.example.com
+      # Ou avec un ALB AWS
+      # - API_URL=https://iot-backend-alb.eu-west-1.elb.amazonaws.com
+    networks:
+      - iot-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: iot-playground-backend:latest
+    container_name: iot-backend
+    ports:
+      - "8080:8080"
+    networks:
+      - iot-network
+    restart: unless-stopped
+
+networks:
+  iot-network:
+    driver: bridge
+
