@@ -11,8 +11,8 @@ RUN npm ci --silent
 # Copier le code source
 COPY . .
 
-# Build de production Angular
-RUN npm run build -- --configuration production
+# Build de production Angular (sans SSR pour éviter les erreurs de connexion)
+RUN npm run build:prod
 
 # ---- Runtime stage ----
 FROM nginx:1.25-alpine
@@ -25,8 +25,8 @@ RUN addgroup -g 101 -S nginx-group && \
 # Supprimer les fichiers par défaut de Nginx
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copier les fichiers buildés depuis le build stage
-COPY --from=build /app/dist/iot-playground-starter-front/browser /usr/share/nginx/html
+# Copier les fichiers buildés depuis le build stage (sans SSR)
+COPY --from=build /app/dist/iot-playground/browser /usr/share/nginx/html
 
 # Copier la configuration Nginx personnalisée
 COPY nginx.conf /etc/nginx/nginx.conf
