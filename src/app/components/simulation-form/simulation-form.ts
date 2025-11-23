@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { SimulationService } from '../../services/simulation.service';
 import { StartRunRequest, RunningSimulation } from '../../models/simulation.model';
 
+// Force recompilation
 @Component({
   selector: 'app-simulation-form',
   imports: [ReactiveFormsModule, CommonModule],
@@ -20,6 +21,7 @@ export class SimulationForm implements OnInit, OnDestroy {
 
   simulationForm: FormGroup;
   isSubmitting = false;
+  isDownloadingReports = false;
   localRunningSimulations = new Set<string>(); // Track multiple local runs
   currentRunId: string | null = null;
   grafanaUrl: string | null = null;
@@ -262,6 +264,115 @@ export class SimulationForm implements OnInit, OnDestroy {
    */
   getProgress(runId: string): { current: number; total: number; percentage: number } {
     return this.progressMap.get(runId) || { current: 0, total: 0, percentage: 0 };
+  }
+
+  /**
+   * Télécharge les rapports de simulations (fichier ZIP)
+   */
+  downloadReports(): void {
+    console.log('📥 Téléchargement des rapports...');
+    this.isDownloadingReports = true;
+    this.errorMessage = null;
+    this.successMessage = null;
+
+    // Timeout de sécurité : si rien ne se passe après 30 secondes, on reset
+    const timeoutId = setTimeout(() => {
+      if (this.isDownloadingReports) {
+        console.error('⏰ Timeout du téléchargement après 30 secondes');
+        this.errorMessage = '⏰ Le téléchargement a pris trop de temps. Réessayez.';
+        this.isDownloadingReports = false;
+        this.cdr.detectChanges();
+      }
+    }, 30000);
+
+    // Fonction pour garantir la remise à zéro
+    const resetDownloadState = () => {
+      this.isDownloadingReports = false;
+      clearTimeout(timeoutId);
+      console.log('✅ isDownloadingReports remis à false');
+      this.cdr.detectChanges();
+    };
+
+    this.simulationService.downloadReports().subscribe({
+      next: (blob) => {
+        console.log('✅ Rapports téléchargés avec succès, taille:', blob.size, 'bytes');
+
+        // Vérifier si le blob n'est pas vide
+        if (blob.size === 0) {
+          console.warn('⚠️ Le fichier téléchargé est vide');
+          this.errorMessage = '⚠️ Aucun rapport disponible pour le moment.';
+          resetDownloadState();
+          return;
+        }
+
+        try {
+          // Créer un lien temporaire pour télécharger le fichier
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `simulation-reports-${new Date().toISOString().slice(0, 10)}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Nettoyer l'URL temporaire
+          setTimeout(() => window.URL.revokeObjectURL(url), 100);
+
+          this.successMessage = '📦 Rapports téléchargés avec succès !';
+
+          // Effacer le message après 3 secondes
+          setTimeout(() => {
+            this.successMessage = null;
+          }, 3000);
+        } catch (e) {
+          console.error('❌ Erreur lors de la création du téléchargement:', e);
+          this.errorMessage = '❌ Erreur lors du téléchargement du fichier.';
+        } finally {
+          resetDownloadState();
+        }
+      },
+      error: (error) => {
+        console.error('❌ Erreur lors du téléchargement des rapports:', error);
+        console.log('Error status:', error.status);
+
+        // Message d'erreur plus descriptif selon le type d'erreur
+        let errorMsg = '❌ Erreur lors du téléchargement des rapports';
+
+        if (error.status === 0) {
+          errorMsg = '❌ Impossible de contacter le serveur. Vérifiez que le backend est démarré.';
+        } else if (error.status === 404) {
+          errorMsg = '❌ Aucun rapport trouvé.';
+        } else if (error.status === 500) {
+          errorMsg = '❌ Erreur serveur lors de la génération des rapports.';
+        } else if (error.error?.message) {
+          errorMsg = `❌ ${error.error.message}`;
+        } else if (error.message) {
+          errorMsg = `❌ ${error.message}`;
+        }
+
+        this.errorMessage = errorMsg;
+
+        // TOUJOURS remettre à false, même dans le cas d'un Blob
+        resetDownloadState();
+
+        // Effacer le message d'erreur après 5 secondes
+        setTimeout(() => {
+          if (this.errorMessage === errorMsg) {
+            this.errorMessage = null;
+          }
+        }, 5000);
+      },
+      complete: () => {
+        console.log('✅ Observable complete');
+        // Triple sécurité finale
+        setTimeout(() => {
+          if (this.isDownloadingReports) {
+            console.warn('⚠️ TRIPLE SECURITE: isDownloadingReports était encore true, remise à false');
+            resetDownloadState();
+          }
+        }, 100);
+      }
+    });
   }
 
   toggleSection(section: number) {

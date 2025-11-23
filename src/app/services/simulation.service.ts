@@ -81,6 +81,17 @@ export class SimulationService {
   }
 
   /**
+   * Télécharge les rapports de simulations (fichier ZIP)
+   * @returns Observable contenant le blob du fichier ZIP
+   */
+  downloadReports(): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/api/reports/download`, {
+      responseType: 'blob',
+      observe: 'body'
+    });
+  }
+
+  /**
    * Génère la liste des IDs de capteurs basée sur un préfixe et un nombre
    * @param prefix - Préfixe pour les IDs (ex: "sensor")
    * @param count - Nombre de capteurs

@@ -1,0 +1,47 @@
+# Dépendances
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build
+dist
+.angular
+.nx
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Tests
+coverage
+.nyc_output
+
+# Environnement
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Logs
+*.log
+logs
+

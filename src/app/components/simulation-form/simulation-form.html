@@ -76,8 +76,8 @@
         </div>
       </div>
 
-      <!-- Accordion Section 2 -->
-      <div class="accordion-section" [class.active]="openSections[2]">
+      <!-- Accordion Section 2 - Masqué temporairement -->
+      <div class="accordion-section" [class.active]="openSections[2]" *ngIf="false">
         <div class="accordion-header" (click)="toggleSection(2)">
           <div class="accordion-title">
             <span class="section-icon">⚙️</span>
@@ -107,8 +107,8 @@
         </div>
       </div>
 
-      <!-- Accordion Section 3 -->
-      <div class="accordion-section" [class.active]="openSections[3]">
+      <!-- Accordion Section 3 - Masqué temporairement -->
+      <div class="accordion-section" [class.active]="openSections[3]" *ngIf="false">
         <div class="accordion-header" (click)="toggleSection(3)">
           <div class="accordion-title">
             <span class="section-icon">🎯</span>
@@ -190,6 +190,19 @@
         </div>
       </div>
 
+      <!-- Bouton de téléchargement des rapports -->
+      <button type="button" class="btn-download-reports" (click)="downloadReports()" [disabled]="isDownloadingReports">
+        <span class="btn-icon" *ngIf="!isDownloadingReports">📦</span>
+        <span class="btn-icon spinner" *ngIf="isDownloadingReports">⏳</span>
+        {{ isDownloadingReports ? 'Téléchargement en cours...' : 'Télécharger les rapports' }}
+      </button>
+
+      <!-- Message d'erreur (juste après le bouton) -->
+      <div class="alert alert-error" *ngIf="errorMessage">
+        <span class="alert-icon">⚠️</span>
+        <span>{{ errorMessage }}</span>
+      </div>
+
       <!-- Barre de progression (seulement pour la simulation locale en cours) -->
       <div class="progress-container" *ngIf="currentRunId && localRunningSimulations.has(currentRunId) && getProgress(currentRunId).total > 0">
         <div class="progress-bar-wrapper">
@@ -214,12 +227,6 @@
         <a [href]="grafanaUrl" target="_blank" rel="noopener" class="grafana-link">
           Ouvrir le dashboard Grafana →
         </a>
-      </div>
-
-      <!-- Message d'erreur -->
-      <div class="alert alert-error" *ngIf="errorMessage">
-        <span class="alert-icon">⚠️</span>
-        <span>{{ errorMessage }}</span>
       </div>
 
       <!-- Message de succès -->
