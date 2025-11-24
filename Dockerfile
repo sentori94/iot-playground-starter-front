@@ -2,57 +2,49 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 
-# Copier les fichiers de dépendances
 COPY package*.json ./
-
-# Installer les dépendances
 RUN npm ci --silent
 
-# Copier le code source
 COPY . .
-
-# Build de production Angular (sans SSR pour éviter les erreurs de connexion)
 RUN npm run build:prod
+
+# Vérifier que le build a bien généré les fichiers
+RUN echo "📁 Vérification du contenu après build:" && \
+    ls -la /app/dist/ && \
+    ls -la /app/dist/iot-playground/ && \
+    ls -la /app/dist/iot-playground/browser/ && \
+    ls -la /app/dist/iot-playground/browser/browser/ && \
+    if [ ! -f /app/dist/iot-playground/browser/browser/index.html ]; then \
+        echo "❌ ERREUR: index.html non trouvé après le build!"; \
+        exit 1; \
+    else \
+        echo "✅ index.html trouvé"; \
+    fi
 
 # ---- Runtime stage ----
 FROM nginx:1.25-alpine
-WORKDIR /usr/share/nginx/html
 
-# Supprimer les fichiers par défaut de Nginx
+# Supprimer les fichiers par défaut
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copier les fichiers buildés depuis le build stage
-COPY --from=build /app/dist/iot-playground/browser /usr/share/nginx/html
+# Copier les fichiers buildés (noter le double browser/)
+COPY --from=build /app/dist/iot-playground/browser/browser /usr/share/nginx/html
 
-# Créer le dossier assets s'il n'existe pas
-RUN mkdir -p /usr/share/nginx/html/assets
-
-# Copier la configuration Nginx personnalisée
+# Copier la configuration Nginx
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Copier le script d'injection des variables d'environnement
-COPY env.sh /docker-entrypoint.d/env.sh
-RUN chmod +x /docker-entrypoint.d/env.sh
+COPY docker-entrypoint-simple.sh /docker-entrypoint-simple.sh
+RUN chmod +x /docker-entrypoint-simple.sh
 
-# Permissions correctes (utiliser l'utilisateur nginx existant)
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
-
-USER nginx
+# Variable d'environnement par défaut
+ENV API_URL=http://localhost:8080
 
 EXPOSE 8080
 
-# Variables d'environnement par défaut
-ENV API_URL=http://localhost:8080
-
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
 
-# Utiliser le script env.sh comme entrypoint
-ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
+ENTRYPOINT ["/docker-entrypoint-simple.sh"]
 
