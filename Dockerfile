@@ -24,6 +24,9 @@ RUN rm -rf /usr/share/nginx/html/*
 # Copier les fichiers buildés depuis le build stage
 COPY --from=build /app/dist/iot-playground/browser /usr/share/nginx/html
 
+# Créer le dossier assets s'il n'existe pas
+RUN mkdir -p /usr/share/nginx/html/assets
+
 # Copier la configuration Nginx personnalisée
 COPY nginx.conf /etc/nginx/nginx.conf
 
@@ -41,14 +44,14 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 
 USER nginx
 
-EXPOSE 80
+EXPOSE 8080
 
 # Variables d'environnement par défaut
 ENV API_URL=http://localhost:8080
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:80/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/ || exit 1
 
 # Utiliser le script env.sh comme entrypoint
 ENTRYPOINT ["/docker-entrypoint.d/env.sh"]
