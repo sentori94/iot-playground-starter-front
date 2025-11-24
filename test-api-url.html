@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Injection API_URL</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .result {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .success {
+            border-left-color: #28a745;
+        }
+        .error {
+            border-left-color: #dc3545;
+        }
+        .label {
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .value {
+            color: #007bff;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🧪 Test d'injection de API_URL</h1>
+
+        <div class="result" id="windowEnvCheck">
+            <div class="label">window.__env disponible :</div>
+            <div class="value" id="windowEnvValue">Chargement...</div>
+        </div>
+
+        <div class="result" id="apiUrlCheck">
+            <div class="label">window.__env.API_URL :</div>
+            <div class="value" id="apiUrlValue">Chargement...</div>
+        </div>
+
+        <div class="result" id="envJsCheck">
+            <div class="label">Fichier env.js chargé :</div>
+            <div class="value" id="envJsValue">Chargement...</div>
+        </div>
+    </div>
+
+    <!-- Charger env.js comme le fait l'application Angular -->
+    <script src="assets/env.js"></script>
+
+    <script>
+        // Vérifier après un court délai pour s'assurer que env.js est chargé
+        setTimeout(() => {
+            // Test 1: window.__env existe ?
+            const windowEnvCheck = document.getElementById('windowEnvCheck');
+            const windowEnvValue = document.getElementById('windowEnvValue');
+            if (typeof window.__env !== 'undefined') {
+                windowEnvValue.textContent = '✅ Oui';
+                windowEnvCheck.classList.add('success');
+            } else {
+                windowEnvValue.textContent = '❌ Non';
+                windowEnvCheck.classList.add('error');
+            }
+
+            // Test 2: window.__env.API_URL existe et a une valeur ?
+            const apiUrlCheck = document.getElementById('apiUrlCheck');
+            const apiUrlValue = document.getElementById('apiUrlValue');
+            if (window.__env && window.__env.API_URL) {
+                apiUrlValue.textContent = `✅ ${window.__env.API_URL}`;
+                apiUrlCheck.classList.add('success');
+                console.log('✅ API_URL détectée:', window.__env.API_URL);
+            } else {
+                apiUrlValue.textContent = '❌ Non définie';
+                apiUrlCheck.classList.add('error');
+                console.error('❌ API_URL non trouvée');
+            }
+
+            // Test 3: Tester le chargement de env.js
+            const envJsCheck = document.getElementById('envJsCheck');
+            const envJsValue = document.getElementById('envJsValue');
+            fetch('assets/env.js')
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error('Fichier non trouvé');
+                })
+                .then(content => {
+                    envJsValue.textContent = `✅ Chargé (${content.length} caractères)`;
+                    envJsCheck.classList.add('success');
+                    console.log('Contenu de env.js:', content);
+                })
+                .catch(error => {
+                    envJsValue.textContent = `❌ ${error.message}`;
+                    envJsCheck.classList.add('error');
+                });
+        }, 100);
+    </script>
+</body>
+</html>
+

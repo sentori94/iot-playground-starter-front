@@ -2,21 +2,46 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { StartRunRequest, StartRunResponse, SensorDataRequest, CanStartResponse, RunningSimulation } from '../models/simulation.model';
-import { environment } from '../../environments/environment';
+
+// Déclaration TypeScript pour window.__env
+declare global {
+  interface Window {
+    __env?: {
+      API_URL?: string;
+    };
+  }
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class SimulationService {
-  private readonly baseUrl = environment.apiUrl; // URL configurée selon l'environnement
+  // Getter pour récupérer l'URL DIRECTEMENT depuis window.__env
+  private get baseUrl(): string {
+    // Lire directement window.__env, sans passer par environment.ts
+    const apiUrl = (typeof window !== 'undefined' && window.__env?.API_URL)
+      ? window.__env.API_URL
+      : 'http://localhost:8080';
 
-  constructor(private http: HttpClient) {}
+    console.log('🌍 [SimulationService] Lecture de window.__env:');
+    console.log('  - window existe?', typeof window !== 'undefined');
+    console.log('  - window.__env existe?', typeof window !== 'undefined' && !!window.__env);
+    console.log('  - window.__env.API_URL =', typeof window !== 'undefined' && window.__env?.API_URL);
+    console.log('  - URL finale:', apiUrl);
+
+    return apiUrl;
+  }
+
+  constructor(private http: HttpClient) {
+    console.log('🎯 [SimulationService] Service créé');
+  }
 
   /**
    * Vérifie si on peut démarrer une nouvelle simulation
    * @returns Observable contenant les informations de capacité
    */
   canStartSimulation(): Observable<CanStartResponse> {
+    console.log('📞 Appel canStartSimulation vers:', `${this.baseUrl}/api/runs/can-start`);
     return this.http.get<CanStartResponse>(`${this.baseUrl}/api/runs/can-start`);
   }
 
