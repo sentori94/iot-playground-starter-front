@@ -32,14 +32,14 @@ jobs:
 
       - name: Deploy to S3
         run: |
-          aws s3 sync dist/iot-playground-starter-front/browser/ s3://${{ vars.S3_BUCKET_NAME }}/ \
+          aws s3 sync dist/iot-playground/browser/ s3://${{ vars.S3_BUCKET_NAME }}/ \
             --delete \
             --cache-control "public,max-age=31536000,immutable" \
             --exclude "index.html" \
             --exclude "*.txt"
           
           # index.html sans cache pour forcer le refresh
-          aws s3 cp dist/iot-playground-starter-front/browser/index.html s3://${{ vars.S3_BUCKET_NAME }}/index.html \
+          aws s3 cp dist/iot-playground/browser/index.html s3://${{ vars.S3_BUCKET_NAME }}/index.html \
             --cache-control "no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront
