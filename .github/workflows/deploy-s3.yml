@@ -23,6 +23,20 @@ jobs:
           npm ci
           npm run build:prod
 
+      - name: List build output
+        run: |
+          echo "📂 Contenu de dist/:"
+          ls -la dist/ || echo "dist/ n'existe pas"
+          echo ""
+          echo "📂 Contenu de dist/iot-playground/:"
+          ls -la dist/iot-playground/ || echo "dist/iot-playground/ n'existe pas"
+          echo ""
+          echo "📂 Contenu de dist/iot-playground/browser/:"
+          ls -la dist/iot-playground/browser/ || echo "dist/iot-playground/browser/ n'existe pas"
+          echo ""
+          echo "📂 Contenu de dist/iot-playground/browser/browser/:"
+          ls -la dist/iot-playground/browser/browser/ || echo "dist/iot-playground/browser/browser/ n'existe pas"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -32,15 +46,16 @@ jobs:
 
       - name: Deploy to S3
         run: |
-          aws s3 sync dist/iot-playground/browser/ s3://${{ vars.S3_BUCKET_NAME }}/ \
+          # Upload tous les fichiers sauf index.html avec cache long
+          aws s3 sync dist/iot-playground/browser/browser/ s3://${{ vars.S3_BUCKET_NAME }}/ \
             --delete \
-            --cache-control "public,max-age=31536000,immutable" \
             --exclude "index.html" \
-            --exclude "*.txt"
+            --cache-control "public,max-age=31536000,immutable"
           
-          # index.html sans cache pour forcer le refresh
-          aws s3 cp dist/iot-playground/browser/index.html s3://${{ vars.S3_BUCKET_NAME }}/index.html \
-            --cache-control "no-cache,no-store,must-revalidate"
+          # Upload index.html sans cache pour forcer le refresh
+          aws s3 cp dist/iot-playground/browser/browser/index.html s3://${{ vars.S3_BUCKET_NAME }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
 
       - name: Invalidate CloudFront
         run: |
