@@ -5,6 +5,72 @@
       <p class="subtitle">Lancez vos simulations sur vos devices IoT</p>
     </div>
 
+    <!-- Section de gestion de l'infrastructure -->
+    <div class="infra-management-section">
+      <div class="infra-header">
+        <h2 class="infra-title">🏗️ Gestion de l'Infrastructure</h2>
+        <p class="infra-subtitle">Créez ou détruisez votre infrastructure AWS</p>
+      </div>
+
+      <!-- Boutons d'action -->
+      <div class="infra-actions">
+        <button
+          type="button"
+          class="btn-infra btn-create"
+          (click)="createInfrastructure()"
+          [disabled]="isInfraActionInProgress()">
+          <span class="btn-icon" *ngIf="!infraState.isCreating">🚀</span>
+          <span class="btn-icon spinner" *ngIf="infraState.isCreating">⏳</span>
+          {{ getCreateButtonLabel() }}
+        </button>
+
+        <button
+          type="button"
+          class="btn-infra btn-destroy"
+          (click)="destroyInfrastructure()"
+          [disabled]="isInfraActionInProgress()">
+          <span class="btn-icon" *ngIf="!infraState.isDestroying">🔥</span>
+          <span class="btn-icon spinner" *ngIf="infraState.isDestroying">⏳</span>
+          {{ infraState.isDestroying ? 'Destruction en cours...' : 'Détruire l\'Infrastructure' }}
+        </button>
+      </div>
+
+      <!-- Statut du déploiement -->
+      <div class="infra-status" *ngIf="infraState.currentStatus">
+        <div class="status-card">
+          <div class="status-header">
+            <span class="status-label">Statut actuel:</span>
+            <span class="status-badge" [class]="'status-' + infraState.currentStatus?.toLowerCase()">
+              {{ getInfraStatusLabel() }}
+            </span>
+          </div>
+
+          <!-- Lien vers le job GitHub Actions -->
+          <div class="github-job-link" *ngIf="infraState.githubActionsUrl">
+            <a [href]="infraState.githubActionsUrl" target="_blank" rel="noopener noreferrer" class="job-link">
+              🔗 Voir le workflow GitHub Actions
+            </a>
+          </div>
+
+          <div class="status-details" *ngIf="infraState.currentDeploymentId">
+            <div class="status-detail-item">
+              <span class="detail-label">Deployment ID:</span>
+              <code class="detail-value">{{ infraState.currentDeploymentId }}</code>
+            </div>
+            <div class="status-detail-item" *ngIf="infraState.lastUpdate">
+              <span class="detail-label">Dernière mise à jour:</span>
+              <span class="detail-value">{{ infraState.lastUpdate | date:'HH:mm:ss' }}</span>
+            </div>
+          </div>
+
+          <!-- Barre de progression pour les états en cours -->
+          <div class="infra-progress-bar" *ngIf="infraState.currentStatus === 'TRIGGERING' || infraState.currentStatus === 'TRIGGERED' || infraState.currentStatus === 'IN_PROGRESS'">
+            <div class="infra-progress-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <form class="simulation-form" [formGroup]="simulationForm" (submit)="onSubmit($event)">
 
       <!-- Accordion Section 1 - Toujours ouverte -->

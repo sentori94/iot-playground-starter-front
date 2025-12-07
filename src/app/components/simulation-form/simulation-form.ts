@@ -3,7 +3,9 @@ import { isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SimulationService } from '../../services/simulation.service';
+import { InfrastructureService } from '../../services/infrastructure.service';
 import { StartRunRequest, RunningSimulation } from '../../models/simulation.model';
+import { InfraState } from '../../models/infrastructure.model';
 
 // Force recompilation
 @Component({
@@ -40,9 +42,22 @@ export class SimulationForm implements OnInit, OnDestroy {
   private pollingInterval: any = null;
   private isBrowser: boolean;
 
+  // Gestion de l'infrastructure
+  infraState: InfraState = {
+    isCreating: false,
+    isDestroying: false,
+    currentDeploymentId: null,
+    currentStatus: null,
+    lastError: null,
+    lastUpdate: null,
+    githubActionsUrl: null
+  };
+  private infraPollingInterval: any = null;
+
   constructor(
     private fb: FormBuilder,
     private simulationService: SimulationService,
+    private infrastructureService: InfrastructureService,
     private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
@@ -73,6 +88,12 @@ export class SimulationForm implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Récupérer le dernier déploiement d'infrastructure au démarrage
+    this.loadLatestInfraDeployment();
+
+    // Démarrer un polling permanent pour vérifier l'état de l'infrastructure toutes les 5 secondes
+    this.startPermanentInfraPolling();
+
     // Démarrer les chargements initiaux après que le cycle de détection soit terminé
     setTimeout(() => {
       this.loadRunningSimulations();
@@ -96,6 +117,11 @@ export class SimulationForm implements OnInit, OnDestroy {
     // Nettoyer le polling quand le composant est détruit
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
+    }
+
+    // Nettoyer le polling d'infrastructure
+    if (this.infraPollingInterval) {
+      clearInterval(this.infraPollingInterval);
     }
 
     // Retirer le listener beforeunload (uniquement côté navigateur)
@@ -223,8 +249,7 @@ export class SimulationForm implements OnInit, OnDestroy {
     const elapsedSeconds = (now - startTime) / 1000;
     const totalDuration = sim.params.duration;
 
-    const percentage = Math.min(100, Math.round((elapsedSeconds / totalDuration) * 100));
-    return percentage;
+    return Math.min(100, Math.round((elapsedSeconds / totalDuration) * 100));
   }
 
   /**
@@ -250,13 +275,6 @@ export class SimulationForm implements OnInit, OnDestroy {
       const minutes = Math.floor((remainingSeconds % 3600) / 60);
       return `${hours}h ${minutes}m`;
     }
-  }
-
-  /**
-   * Vérifie si une simulation est en cours localement (lancée depuis cet onglet)
-   */
-  isLocalSimulation(runId: string): boolean {
-    return this.localRunningSimulations.has(runId);
   }
 
   /**
@@ -624,4 +642,257 @@ export class SimulationForm implements OnInit, OnDestroy {
     const control = this.simulationForm.get(fieldName);
     return !!(control && control.invalid && control.touched);
   }
+
+  // ========================================
+  // MÉTHODES DE GESTION DE L'INFRASTRUCTURE
+  // ========================================
+
+  /**
+   * Démarre un polling permanent pour surveiller l'état de l'infrastructure
+   * Appelé toutes les 5 secondes pour détecter les changements d'état même après rafraîchissement
+   */
+  private startPermanentInfraPolling(): void {
+    // Polling permanent toutes les 5 secondes
+    setInterval(() => {
+      this.loadLatestInfraDeployment();
+    }, 5000);
+
+    console.log('🔄 [startPermanentInfraPolling] Polling permanent démarré (toutes les 5 secondes)');
+  }
+
+  /**
+   * Charge le dernier déploiement d'infrastructure au démarrage
+   */
+  private loadLatestInfraDeployment(): void {
+    this.infrastructureService.getLatestDeployment().subscribe({
+      next: (response) => {
+        if (response.success && response.deployment) {
+          const deployment = response.deployment;
+
+          // TOUJOURS mettre à jour ces champs à chaque appel
+          this.infraState.currentDeploymentId = deployment.deployment_id;
+          this.infraState.currentStatus = deployment.status;
+          this.infraState.lastUpdate = new Date(); // Date actuelle du polling
+          // Utiliser workflow_run_url (lien direct vers le job) si disponible, sinon github_actions_url
+          this.infraState.githubActionsUrl = deployment.workflow_run_url || deployment.github_actions_url || null;
+
+          // Si le déploiement est EN COURS (TRIGGERED ou IN_PROGRESS)
+          if (deployment.status === 'TRIGGERING' ||
+              deployment.status === 'TRIGGERED' ||
+              deployment.status === 'IN_PROGRESS') {
+
+            console.log('🔄 [Infra] En cours:', deployment.status, '- Dernière vérification:', new Date().toLocaleTimeString());
+
+            // Déterminer si c'est une création ou destruction
+            if (deployment.terraform_action === 'destroy') {
+              this.infraState.isDestroying = true;
+              this.infraState.isCreating = false;
+            } else {
+              // apply ou plan = création
+              this.infraState.isCreating = true;
+              this.infraState.isDestroying = false;
+            }
+
+            this.cdr.detectChanges();
+          }
+          // Si le déploiement est SUCCESS → Infrastructure réservée/créée
+          else if (deployment.status === 'SUCCESS') {
+            console.log('✅ [Infra] Infrastructure CRÉÉE (SUCCESS) - Dernière vérification:', new Date().toLocaleTimeString());
+
+            this.infraState.isCreating = false;
+            this.infraState.isDestroying = false;
+
+            // Message de confirmation (une seule fois)
+            if (!this.successMessage || !this.successMessage.includes('Infrastructure créée')) {
+              this.successMessage = '✅ Infrastructure créée et réservée !';
+            }
+
+            this.cdr.detectChanges();
+          }
+          // Si le déploiement a FAILED
+          else if (deployment.status === 'FAILED') {
+            console.log('❌ [Infra] Déploiement ÉCHOUÉ - Dernière vérification:', new Date().toLocaleTimeString());
+
+            this.infraState.lastError = deployment.error_message || 'Échec';
+            this.infraState.isCreating = false;
+            this.infraState.isDestroying = false;
+
+            this.cdr.detectChanges();
+          }
+        } else {
+          // Aucun déploiement trouvé → Réinitialiser l'état
+          console.log('ℹ️ [Infra] Aucun déploiement trouvé');
+          this.infraState.currentDeploymentId = null;
+          this.infraState.currentStatus = null;
+          this.infraState.isCreating = false;
+          this.infraState.isDestroying = false;
+          this.infraState.githubActionsUrl = null;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (error) => {
+        if (error.status === 404) {
+          // Table vide → Réinitialiser l'état
+          console.log('ℹ️ [Infra] Table vide (404)');
+          this.infraState.currentDeploymentId = null;
+          this.infraState.currentStatus = null;
+          this.infraState.isCreating = false;
+          this.infraState.isDestroying = false;
+          this.infraState.githubActionsUrl = null;
+          this.cdr.detectChanges();
+        } else {
+          console.error('❌ [loadLatestInfraDeployment] Erreur:', error);
+        }
+      }
+    });
+  }
+
+  /**
+   * Déclenche la création de l'infrastructure
+   */
+  createInfrastructure(): void {
+    const username = this.simulationForm.get('username')?.value || 'sentori94';
+
+    console.log('🏗️ Démarrage de la création de l\'infrastructure (mode: apply)...');
+
+    this.infraState.isCreating = true;
+    this.infraState.lastError = null;
+    this.errorMessage = null;
+
+    const request = {
+      user: username,
+      environment: 'dev',
+      mode: 'apply' as const  // MODE APPLY pour la production
+    };
+
+    this.infrastructureService.createInfrastructure(request).subscribe({
+      next: (response) => {
+        console.log('✅ Infrastructure - Création déclenchée (apply):', response);
+
+        this.infraState.currentDeploymentId = response.deployment_id;
+        this.infraState.currentStatus = response.status;
+        this.infraState.lastUpdate = new Date();
+        // Utiliser workflow_run_url (lien direct) si disponible, sinon github_actions_url
+        this.infraState.githubActionsUrl = response.workflow_run_url || response.github_actions_url || null;
+
+        this.successMessage = `🚀 Création de l'infrastructure déclenchée ! (ID: ${response.deployment_id})`;
+
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Erreur lors de la création de l\'infrastructure:', error);
+
+        const errorMsg = error.error?.error || error.message || 'Erreur inconnue';
+        this.infraState.lastError = errorMsg;
+        this.infraState.isCreating = false;
+        this.errorMessage = `❌ Erreur création infrastructure: ${errorMsg}`;
+
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Déclenche la destruction de l'infrastructure
+   */
+  destroyInfrastructure(): void {
+    const username = this.simulationForm.get('username')?.value || 'anonymous';
+
+    // Confirmation avant destruction
+    if (!confirm('⚠️ Êtes-vous sûr de vouloir détruire l\'infrastructure ? Cette action est irréversible.')) {
+      return;
+    }
+
+    console.log('🔥 Démarrage de la destruction de l\'infrastructure...');
+
+    this.infraState.isDestroying = true;
+    this.infraState.lastError = null;
+    this.errorMessage = null;
+
+    const request = {
+      user: username,
+      environment: 'dev',
+      mode: 'destroy' as const
+    };
+
+    this.infrastructureService.destroyInfrastructure(request).subscribe({
+      next: (response) => {
+        console.log('✅ Infrastructure - Destruction déclenchée:', response);
+
+        this.infraState.currentDeploymentId = response.deployment_id;
+        this.infraState.currentStatus = response.status;
+        this.infraState.lastUpdate = new Date();
+
+        this.successMessage = `🔥 Destruction de l'infrastructure déclenchée ! (ID: ${response.deployment_id})`;
+
+
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('❌ Erreur lors de la destruction de l\'infrastructure:', error);
+
+        const errorMsg = error.error?.error || error.message || 'Erreur inconnue';
+        this.infraState.lastError = errorMsg;
+        this.infraState.isDestroying = false;
+        this.errorMessage = `❌ Erreur destruction infrastructure: ${errorMsg}`;
+
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+
+  /**
+   * Retourne un libellé lisible pour le statut actuel
+   */
+  getInfraStatusLabel(): string {
+    switch (this.infraState.currentStatus) {
+      case 'TRIGGERING':
+        return '⏳ Déclenchement en cours...';
+      case 'TRIGGERED':
+        return '🚀 Workflow GitHub déclenché';
+      case 'IN_PROGRESS':
+        return '⚙️ Déploiement en cours...';
+      case 'SUCCESS':
+        return '✅ Terminé avec succès';
+      case 'FAILED':
+        return '❌ Échec';
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Retourne le libellé du bouton de création/update selon l'état actuel
+   */
+  getCreateButtonLabel(): string {
+    if (this.infraState.isCreating) {
+      return 'Création en cours...';
+    }
+
+    // Si l'infrastructure est déjà créée (SUCCESS), afficher "Update"
+    if (this.infraState.currentStatus === 'SUCCESS') {
+      return 'Update Infrastructure';
+    }
+
+    // Sinon, afficher "Créer"
+    return 'Créer l\'Infrastructure';
+  }
+
+  /**
+   * Vérifie si une action d'infrastructure est en cours
+   * Bloque les boutons si un déploiement est déjà en cours (quelque soit l'origine)
+   */
+  isInfraActionInProgress(): boolean {
+    // Bloquer si :
+    // - En train de créer/détruire
+    // - Un déploiement est en cours (TRIGGERING, TRIGGERED, IN_PROGRESS)
+    // Note: SUCCESS n'est plus bloquant pour permettre l'update
+    return this.infraState.isCreating ||
+           this.infraState.isDestroying ||
+           this.infraState.currentStatus === 'TRIGGERING' ||
+           this.infraState.currentStatus === 'TRIGGERED' ||
+           this.infraState.currentStatus === 'IN_PROGRESS';
+  }
 }
+

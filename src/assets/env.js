@@ -3,7 +3,10 @@
 (function (window) {
   window.__env = window.__env || {};
 
-  // API URL - sera remplacé par le script env.sh
-  window.__env.API_URL = 'http://localhost:8080';
+  // API URL - Backend IoT API
+  window.__env.API_URL = 'http://api-iot.sentori-studio.com';
+
+  // Infrastructure API URL (API Gateway)
+  window.__env.INFRA_API_URL = 'https://infra-manager-iot.sentori-studio.com';
 }(this));
 
