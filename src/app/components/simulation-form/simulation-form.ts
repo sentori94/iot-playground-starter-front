@@ -887,12 +887,32 @@ export class SimulationForm implements OnInit, OnDestroy {
     // Bloquer si :
     // - En train de créer/détruire
     // - Un déploiement est en cours (TRIGGERING, TRIGGERED, IN_PROGRESS)
-    // Note: SUCCESS n'est plus bloquant pour permettre l'update
+    // Note: SUCCESS et FAILED permettent de lancer une nouvelle action
     return this.infraState.isCreating ||
            this.infraState.isDestroying ||
            this.infraState.currentStatus === 'TRIGGERING' ||
            this.infraState.currentStatus === 'TRIGGERED' ||
            this.infraState.currentStatus === 'IN_PROGRESS';
+  }
+
+  /**
+   * Vérifie si le bouton de destruction doit être désactivé
+   * Désactivé si : aucun déploiement OU déploiement en cours
+   */
+  isDestroyButtonDisabled(): boolean {
+    // Désactiver si aucun déploiement trouvé
+    if (!this.infraState.currentDeploymentId || !this.infraState.currentStatus) {
+      return true;
+    }
+
+    // Désactiver si une action est en cours
+    if (this.isInfraActionInProgress()) {
+      return true;
+    }
+
+    // Activer uniquement si SUCCESS ou FAILED
+    return this.infraState.currentStatus !== 'SUCCESS' &&
+           this.infraState.currentStatus !== 'FAILED';
   }
 }
 

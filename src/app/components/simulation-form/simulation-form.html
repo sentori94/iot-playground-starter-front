@@ -28,7 +28,7 @@
           type="button"
           class="btn-infra btn-destroy"
           (click)="destroyInfrastructure()"
-          [disabled]="isInfraActionInProgress()">
+          [disabled]="isDestroyButtonDisabled()">
           <span class="btn-icon" *ngIf="!infraState.isDestroying">🔥</span>
           <span class="btn-icon spinner" *ngIf="infraState.isDestroying">⏳</span>
           {{ infraState.isDestroying ? 'Destruction en cours...' : 'Détruire l\'Infrastructure' }}
