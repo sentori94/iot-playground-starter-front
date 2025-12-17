@@ -5,8 +5,28 @@
       <p class="subtitle">Lancez vos simulations sur vos devices IoT</p>
     </div>
 
-    <!-- Section de gestion de l'infrastructure -->
-    <div class="infra-management-section">
+    <!-- Onglets de sélection du mode -->
+    <div class="deployment-mode-tabs">
+      <button
+        type="button"
+        class="mode-tab"
+        [class.active]="deploymentMode === 'ecs'"
+        (click)="switchDeploymentMode('ecs')">
+        <span class="tab-icon">🐳</span>
+        <span class="tab-label">Full ECS</span>
+      </button>
+      <button
+        type="button"
+        class="mode-tab"
+        [class.active]="deploymentMode === 'serverless'"
+        (click)="switchDeploymentMode('serverless')">
+        <span class="tab-icon">⚡</span>
+        <span class="tab-label">Serverless</span>
+      </button>
+    </div>
+
+    <!-- Section de gestion de l'infrastructure (uniquement pour Full ECS) -->
+    <div class="infra-management-section" *ngIf="deploymentMode === 'ecs'">
       <div class="infra-header">
         <h2 class="infra-title">🏗️ Gestion de l'Infrastructure</h2>
         <p class="infra-subtitle">Créez ou détruisez votre infrastructure AWS</p>
@@ -212,47 +232,60 @@
 
       <!-- Informations de capacité - Toujours affichée -->
       <div class="capacity-widget" *ngIf="canStartInfo"
-           [class.capacity-full]="!canStartInfo.canStart"
+           [class.capacity-full]="!canStartInfo.canStart && canStartInfo.maxAllowed > 0"
            [class.capacity-available]="canStartInfo.canStart && canStartInfo.currentRunning > 0"
-           [class.capacity-empty]="canStartInfo.currentRunning === 0">
+           [class.capacity-empty]="canStartInfo.currentRunning === 0 && canStartInfo.maxAllowed > 0"
+           [class.capacity-error]="canStartInfo.maxAllowed === 0">
         <div class="capacity-header">
           <span class="capacity-icon">
-            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning === 0">✨</span>
-            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning > 0">📊</span>
-            <span *ngIf="!canStartInfo.canStart">⚠️</span>
+            <span *ngIf="canStartInfo.maxAllowed === 0">🔌</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && canStartInfo.canStart && canStartInfo.currentRunning === 0">✨</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && canStartInfo.canStart && canStartInfo.currentRunning > 0">📊</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && !canStartInfo.canStart">⚠️</span>
           </span>
           <span class="capacity-title">
-            <span *ngIf="canStartInfo.currentRunning === 0">Prêt à lancer</span>
-            <span *ngIf="canStartInfo.canStart && canStartInfo.currentRunning > 0">Capacité disponible</span>
-            <span *ngIf="!canStartInfo.canStart">Capacité maximale atteinte</span>
+            <span *ngIf="canStartInfo.maxAllowed === 0">Connexion impossible</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && canStartInfo.currentRunning === 0">Prêt à lancer</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && canStartInfo.canStart && canStartInfo.currentRunning > 0">Capacité disponible</span>
+            <span *ngIf="canStartInfo.maxAllowed > 0 && !canStartInfo.canStart">Capacité maximale atteinte</span>
           </span>
         </div>
 
         <div class="capacity-stats">
           <div class="capacity-stat">
             <span class="stat-label">En cours</span>
-            <span class="stat-value">{{ canStartInfo.currentRunning }}</span>
+            <span class="stat-value" [class.stat-error]="canStartInfo.maxAllowed === 0">
+              {{ canStartInfo.currentRunning }}
+            </span>
           </div>
           <div class="capacity-divider">/</div>
           <div class="capacity-stat">
             <span class="stat-label">Maximum</span>
-            <span class="stat-value">{{ canStartInfo.maxAllowed }}</span>
+            <span class="stat-value" [class.stat-error]="canStartInfo.maxAllowed === 0">
+              {{ canStartInfo.maxAllowed }}
+            </span>
           </div>
           <div class="capacity-divider">•</div>
           <div class="capacity-stat">
             <span class="stat-label">Disponibles</span>
-            <span class="stat-value" [class.stat-zero]="canStartInfo.available === 0">
+            <span class="stat-value" [class.stat-zero]="canStartInfo.available === 0" [class.stat-error]="canStartInfo.maxAllowed === 0">
               {{ canStartInfo.available }}
             </span>
           </div>
         </div>
 
         <!-- Barre de progression de la capacité -->
-        <div class="capacity-bar-wrapper">
+        <div class="capacity-bar-wrapper" *ngIf="canStartInfo.maxAllowed > 0">
           <div class="capacity-bar"
                [style.width.%]="(canStartInfo.currentRunning / canStartInfo.maxAllowed) * 100"
                [class.capacity-bar-full]="!canStartInfo.canStart">
           </div>
+        </div>
+
+        <!-- Message d'erreur de connexion -->
+        <div class="capacity-error-message" *ngIf="canStartInfo.maxAllowed === 0">
+          <span class="error-icon">⚠️</span>
+          <span>L'API ne répond pas. Vérifiez la configuration CORS.</span>
         </div>
       </div>
 
@@ -327,19 +360,19 @@
           </div>
 
           <div class="simulation-details">
-            <div class="detail-item">
+            <div class="detail-item" *ngIf="sim.params?.runId">
               <span class="detail-label">Run ID:</span>
               <code class="detail-value">{{ sim.params.runId }}</code>
             </div>
-            <div class="detail-item">
+            <div class="detail-item" *ngIf="sim.params?.sensorIds">
               <span class="detail-label">Capteurs:</span>
               <span class="detail-value">{{ sim.params.sensorIds.length }} capteur(s)</span>
             </div>
-            <div class="detail-item">
+            <div class="detail-item" *ngIf="sim.params?.duration">
               <span class="detail-label">Durée:</span>
               <span class="detail-value">{{ sim.params.duration }}s</span>
             </div>
-            <div class="detail-item">
+            <div class="detail-item" *ngIf="sim.params?.interval">
               <span class="detail-label">Intervalle:</span>
               <span class="detail-value">{{ sim.params.interval }}s</span>
             </div>
@@ -360,7 +393,7 @@
 
           <div class="simulation-actions" *ngIf="sim.grafanaUrl || sim.status === 'RUNNING'">
             <button
-              *ngIf="sim.status === 'RUNNING'"
+              *ngIf="sim.status === 'RUNNING' && sim.params?.runId"
               class="btn-abandon"
               (click)="abandonSimulation(sim.params.runId)"
               title="Abandonner cette simulation">

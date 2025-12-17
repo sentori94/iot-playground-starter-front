@@ -3,8 +3,9 @@ import { isPlatformBrowser } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { SimulationService } from '../../services/simulation.service';
+import { ServerlessSimulationService } from '../../services/serverless-simulation.service';
 import { InfrastructureService } from '../../services/infrastructure.service';
-import { StartRunRequest, RunningSimulation } from '../../models/simulation.model';
+import { StartRunRequest, RunningSimulation, DeploymentMode } from '../../models/simulation.model';
 import { InfraState } from '../../models/infrastructure.model';
 
 // Force recompilation
@@ -15,6 +16,9 @@ import { InfraState } from '../../models/infrastructure.model';
   styleUrl: './simulation-form.css',
 })
 export class SimulationForm implements OnInit, OnDestroy {
+  // Mode de déploiement (ECS ou Serverless)
+  deploymentMode: DeploymentMode = 'serverless';
+
   openSections: { [key: number]: boolean } = {
     1: true,  // Configuration Générale toujours ouverte
     2: false,
@@ -57,6 +61,7 @@ export class SimulationForm implements OnInit, OnDestroy {
   constructor(
     private fb: FormBuilder,
     private simulationService: SimulationService,
+    private serverlessSimulationService: ServerlessSimulationService,
     private infrastructureService: InfrastructureService,
     private cdr: ChangeDetectorRef,
     @Inject(PLATFORM_ID) platformId: Object
@@ -149,16 +154,38 @@ export class SimulationForm implements OnInit, OnDestroy {
   };
 
   /**
+   * Obtient le service de simulation actif selon le mode
+   */
+  private getActiveSimulationService() {
+    return this.deploymentMode === 'serverless'
+      ? this.serverlessSimulationService
+      : this.simulationService;
+  }
+
+  /**
+   * Change le mode de déploiement
+   */
+  switchDeploymentMode(mode: DeploymentMode): void {
+    console.log(`🔄 Changement de mode: ${this.deploymentMode} -> ${mode}`);
+    this.deploymentMode = mode;
+
+    // Recharger les données pour le nouveau mode
+    this.loadRunningSimulations();
+    this.loadCapacity();
+  }
+
+  /**
    * Charge la liste des simulations en cours
    */
   private loadRunningSimulations(): void {
-    this.simulationService.getRunningSimulations().subscribe({
+    const service = this.getActiveSimulationService();
+    service.getRunningSimulations().subscribe({
       next: (runs) => {
         this.runningSimulations = runs;
-        console.log(`📊 ${runs.length} simulation(s) en cours`, runs);
+        console.log(`📊 [${this.deploymentMode}] ${runs.length} simulation(s) en cours`);
       },
       error: (error) => {
-        console.error('❌ Erreur lors du chargement des runs en cours:', error);
+        console.error(`❌ [${this.deploymentMode}] Erreur lors du chargement des runs en cours:`, error);
       }
     });
   }
@@ -167,16 +194,39 @@ export class SimulationForm implements OnInit, OnDestroy {
    * Charge les informations de capacité
    */
   private loadCapacity(): void {
-    this.simulationService.canStartSimulation().subscribe({
+    const service = this.getActiveSimulationService();
+    service.canStartSimulation().subscribe({
       next: (response) => {
         this.canStartInfo = response;
+
+        // Effacer les messages d'erreur si la connexion fonctionne
+        if (this.errorMessage?.includes('CORS') || this.errorMessage?.includes('connexion')) {
+          this.errorMessage = null;
+        }
       },
       error: (error) => {
         // En cas d'erreur (503 par exemple), récupérer quand même les infos
         if (error.status === 503 && error.error) {
           this.canStartInfo = error.error;
+        } else if (error.status === 0 || error.status === 403) {
+          console.error(`❌ [${this.deploymentMode}] Erreur de connexion (CORS):`, error);
+
+          // Afficher des valeurs à 0 pour indiquer qu'il y a un problème
+          this.canStartInfo = {
+            canStart: false,
+            currentRunning: 0,
+            maxAllowed: 0,
+            available: 0
+          };
+
+          // Message d'erreur explicite
+          if (this.deploymentMode === 'serverless') {
+            this.errorMessage = `⚠️ Impossible de contacter l'API Serverless. Vérifiez que les headers CORS sont configurés sur les Lambdas`;
+          } else {
+            this.errorMessage = `⚠️ Impossible de contacter l'API. Vérifiez que le backend est démarré.`;
+          }
         } else {
-          console.error('❌ Erreur lors du chargement de la capacité:', error);
+          console.error(`❌ [${this.deploymentMode}] Erreur lors du chargement de la capacité:`, error);
         }
       }
     });
@@ -192,7 +242,8 @@ export class SimulationForm implements OnInit, OnDestroy {
       return;
     }
 
-    this.simulationService.getRunningSimulations().subscribe({
+    const service = this.getActiveSimulationService();
+    service.getRunningSimulations().subscribe({
       next: (runs) => {
         const myOrphanedRuns = runs.filter(run =>
           run.username === username &&
@@ -218,14 +269,15 @@ export class SimulationForm implements OnInit, OnDestroy {
    * Abandonne une simulation en cours (marque comme FAILED)
    */
   abandonSimulation(runId: string): void {
-    console.log(`🛑 Abandon de la simulation ${runId}`);
+    console.log(`🛑 [${this.deploymentMode}] Abandon de la simulation ${runId}`);
 
     const finishData = {
       status: 'FAILED',
       message: 'Simulation abandonée par l\'utilisateur (interruption)'
     };
 
-    this.simulationService.finishRun(runId, finishData).subscribe({
+    const service = this.getActiveSimulationService();
+    service.finishRun(runId, finishData).subscribe({
       next: (response) => {
         console.log('✅ Run marqué comme abandonné:', response);
         // Recharger la liste
@@ -243,6 +295,7 @@ export class SimulationForm implements OnInit, OnDestroy {
    */
   calculateProgress(sim: RunningSimulation): number {
     if (sim.status !== 'RUNNING') return 100;
+    if (!sim.params || !sim.params.duration) return 0;
 
     const startTime = new Date(sim.startedAt).getTime();
     const now = new Date().getTime();
@@ -257,6 +310,7 @@ export class SimulationForm implements OnInit, OnDestroy {
    */
   getRemainingTime(sim: RunningSimulation): string {
     if (sim.status !== 'RUNNING') return '0s';
+    if (!sim.params || !sim.params.duration) return '0s';
 
     const startTime = new Date(sim.startedAt).getTime();
     const now = new Date().getTime();
@@ -311,9 +365,10 @@ export class SimulationForm implements OnInit, OnDestroy {
       this.cdr.detectChanges();
     };
 
-    this.simulationService.downloadReports().subscribe({
+    const service = this.getActiveSimulationService();
+    service.downloadReports().subscribe({
       next: (blob) => {
-        console.log('✅ Rapports téléchargés avec succès, taille:', blob.size, 'bytes');
+        console.log(`✅ [${this.deploymentMode}] Rapports téléchargés avec succès, taille:`, blob.size, 'bytes');
 
         // Vérifier si le blob n'est pas vide
         if (blob.size === 0) {
@@ -417,10 +472,11 @@ export class SimulationForm implements OnInit, OnDestroy {
     this.successMessage = null;
 
     // Vérifier d'abord si on peut démarrer une simulation
-    console.log('🔍 Vérification de la capacité de démarrage...');
-    this.simulationService.canStartSimulation().subscribe({
+    console.log(`🔍 [${this.deploymentMode}] Vérification de la capacité de démarrage...`);
+    const service = this.getActiveSimulationService();
+    service.canStartSimulation().subscribe({
       next: (canStartResponse) => {
-        console.log('📊 Réponse can-start:', canStartResponse);
+        console.log(`📊 [${this.deploymentMode}] Réponse can-start:`, canStartResponse);
 
         if (!canStartResponse.canStart) {
           // Impossible de démarrer
@@ -434,7 +490,7 @@ export class SimulationForm implements OnInit, OnDestroy {
         this.startSimulation();
       },
       error: (error) => {
-        console.error('❌ Erreur lors de la vérification de capacité:', error);
+        console.error(`❌ [${this.deploymentMode}] Erreur lors de la vérification de capacité:`, error);
 
         // Si c'est une 503, parser la réponse
         if (error.status === 503 && error.error) {
@@ -458,7 +514,8 @@ export class SimulationForm implements OnInit, OnDestroy {
     const intervalMs = formValues.intervalMs;
 
     // Génération des IDs de capteurs
-    const sensorIds = this.simulationService.generateSensorIds('sensor', sensorsCount);
+    const service = this.getActiveSimulationService();
+    const sensorIds = service.generateSensorIds('sensor', sensorsCount);
 
     // Préparation de la requête pour démarrer le Run
     const request: StartRunRequest = {
@@ -479,9 +536,9 @@ export class SimulationForm implements OnInit, OnDestroy {
     this.isSubmitting = true;
 
     // Appel API pour démarrer le Run
-    this.simulationService.startRun(username, request).subscribe({
+    service.startRun(username, request).subscribe({
       next: (response) => {
-        console.log('✅ Run démarré avec succès:', response);
+        console.log(`✅ [${this.deploymentMode}] Run démarré avec succès:`, response);
         console.log('📊 Run ID reçu:', response.runId);
         console.log('🔗 Grafana URL reçue:', response.grafanaUrl);
 
@@ -533,6 +590,8 @@ export class SimulationForm implements OnInit, OnDestroy {
     });
 
     let callIndex = 0;
+    // Capturer le service actif au moment du démarrage
+    const service = this.getActiveSimulationService();
 
     const sendNextBatch = () => {
       if (callIndex >= count) {
@@ -545,12 +604,12 @@ export class SimulationForm implements OnInit, OnDestroy {
       const promises = sensorIds.map(sensorId => {
         const data = {
           sensorId: sensorId,
-          reading: this.simulationService.generateRandomReading(),
+          reading: service.generateRandomReading(),
           type: 'temperature'
         };
 
-        console.log(`📤 Envoi des données pour ${sensorId}:`, data);
-        return this.simulationService.sendSensorData(username, runId, data).toPromise();
+        console.log(`📤 [${this.deploymentMode}] Envoi des données pour ${sensorId}:`, data);
+        return service.sendSensorData(username, runId, data).toPromise();
       });
 
       Promise.all(promises)
@@ -603,15 +662,16 @@ export class SimulationForm implements OnInit, OnDestroy {
       message: 'Simulation completed successfully'
     };
 
-    this.simulationService.finishRun(runId, finishData).subscribe({
+    const service = this.getActiveSimulationService();
+    service.finishRun(runId, finishData).subscribe({
       next: (response) => {
-        console.log(`✅ Run ${runId} confirmé comme terminé:`, response);
+        console.log(`✅ [${this.deploymentMode}] Run ${runId} confirmé comme terminé:`, response);
         // Recharger encore une fois après confirmation
         this.loadRunningSimulations();
         this.loadCapacity();
       },
       error: (error) => {
-        console.error(`⚠️ Erreur lors de la confirmation de fin du run ${runId}:`, error);
+        console.error(`⚠️ [${this.deploymentMode}] Erreur lors de la confirmation de fin du run ${runId}:`, error);
         // On n'affiche pas d'erreur à l'utilisateur car la simulation s'est bien passée
       }
     });

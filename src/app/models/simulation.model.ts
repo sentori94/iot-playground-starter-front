@@ -51,3 +51,13 @@ export interface RunningSimulation {
   errorMessage: string | null;
 }
 
+// Types pour le mode de déploiement
+export type DeploymentMode = 'ecs' | 'serverless';
+
+export interface DeploymentModeConfig {
+  mode: DeploymentMode;
+  label: string;
+  apiUrl: string;
+  grafanaUrlTemplate?: string;
+}
+

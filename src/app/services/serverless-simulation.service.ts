@@ -1,44 +1,36 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { StartRunRequest, StartRunResponse, SensorDataRequest, CanStartResponse, RunningSimulation } from '../models/simulation.model';
-
 
 @Injectable({
   providedIn: 'root'
 })
-export class SimulationService {
-  // Getter pour récupérer l'URL DIRECTEMENT depuis window.__env
+export class ServerlessSimulationService {
+  // URL de base pour le mode Serverless
   private get baseUrl(): string {
-    // Lire directement window.__env, sans passer par environment.ts
-    const apiUrl = (typeof window !== 'undefined' && window.__env?.API_URL)
-      ? window.__env.API_URL
-      : 'http://localhost:8080';
-
-    console.log('🌍 [SimulationService] Lecture de window.__env:');
-    console.log('  - window existe?', typeof window !== 'undefined');
-    console.log('  - window.__env existe?', typeof window !== 'undefined' && !!window.__env);
-    console.log('  - window.__env.API_URL =', typeof window !== 'undefined' && window.__env?.API_URL);
-    console.log('  - URL finale:', apiUrl);
-
-    return apiUrl;
+    // Priorité : SERVERLESS_API_URL > fallback sur URL hardcodée
+    return (typeof window !== 'undefined' && window.__env && (window.__env as any).SERVERLESS_API_URL)
+      ? (window.__env as any).SERVERLESS_API_URL
+      : 'https://api-lambda-iot.sentori-studio.com';
   }
 
   constructor(private http: HttpClient) {
-    console.log('🎯 [SimulationService] Service créé');
+    console.log('🎯 [ServerlessSimulationService] Service créé');
   }
 
   /**
-   * Vérifie si on peut démarrer une nouvelle simulation
+   * Vérifie si on peut démarrer une nouvelle simulation (Serverless)
    * @returns Observable contenant les informations de capacité
    */
   canStartSimulation(): Observable<CanStartResponse> {
-    console.log('📞 Appel canStartSimulation vers:', `${this.baseUrl}/api/runs/can-start`);
+    console.log('📞 [Serverless] Appel canStartSimulation vers:', `${this.baseUrl}/api/runs/can-start`);
     return this.http.get<CanStartResponse>(`${this.baseUrl}/api/runs/can-start`);
   }
 
   /**
-   * Démarre un nouveau Run de simulation
+   * Démarre un nouveau Run de simulation (Serverless)
    * @param username - Nom de l'utilisateur (header X-User)
    * @param request - Configuration du run (sensorIds, duration, interval)
    * @returns Observable contenant le runId et l'URL Grafana
@@ -49,15 +41,27 @@ export class SimulationService {
       'X-User': username
     });
 
-    return this.http.post<StartRunResponse>(
+    console.log('🚀 [Serverless] Démarrage du run vers:', `${this.baseUrl}/api/runs/start`);
+    return this.http.post<any>(
       `${this.baseUrl}/api/runs/start`,
       request,
       { headers }
+    ).pipe(
+      map((response: any) => {
+        // Si la réponse a 'id' au lieu de 'runId', on le mappe
+        if (response.id && !response.runId) {
+          return {
+            runId: response.id,
+            grafanaUrl: response.grafanaUrl
+          };
+        }
+        return response;
+      })
     );
   }
 
   /**
-   * Envoie les données d'un capteur
+   * Envoie les données d'un capteur (Serverless)
    * @param username - Nom de l'utilisateur (header X-User)
    * @param runId - ID du run (header X-Run-Id)
    * @param data - Données du capteur (sensorId, reading)
@@ -78,12 +82,13 @@ export class SimulationService {
   }
 
   /**
-   * Confirme la fin d'un run de simulation
+   * Confirme la fin d'un run de simulation (Serverless)
    * @param runId - ID du run à terminer
    * @param finishData - Données de fin (statut, message, etc.)
    * @returns Observable contenant le run mis à jour
    */
   finishRun(runId: string, finishData: { status?: string, message?: string }): Observable<any> {
+    console.log('🏁 [Serverless] Fin du run:', runId);
     return this.http.post<any>(
       `${this.baseUrl}/api/runs/${runId}/finish`,
       finishData
@@ -91,7 +96,7 @@ export class SimulationService {
   }
 
   /**
-   * Récupère la liste des simulations en cours
+   * Récupère la liste des simulations en cours (Serverless)
    * @returns Observable contenant la liste des runs actifs
    */
   getRunningSimulations(): Observable<RunningSimulation[]> {
@@ -99,7 +104,7 @@ export class SimulationService {
   }
 
   /**
-   * Télécharge les rapports de simulations (fichier ZIP)
+   * Télécharge les rapports de simulations (fichier ZIP) (Serverless)
    * @returns Observable contenant le blob du fichier ZIP
    */
   downloadReports(): Observable<Blob> {
@@ -129,3 +134,4 @@ export class SimulationService {
     return Math.round((Math.random() * (max - min) + min) * 10) / 10;
   }
 }
+

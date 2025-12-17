@@ -1,14 +1,6 @@
 // Environnement de production (ECS/Docker)
 // L'URL sera injectée dynamiquement au runtime via window.__env
-
-// Déclaration du type pour window.__env
-declare global {
-  interface Window {
-    __env?: {
-      API_URL?: string;
-    };
-  }
-}
+// La déclaration de window.__env est dans src/app/types/window.d.ts
 
 // Fonction pour récupérer l'API URL au runtime
 export function getApiUrl(): string {

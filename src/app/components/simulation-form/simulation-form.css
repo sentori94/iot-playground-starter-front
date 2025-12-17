@@ -122,6 +122,90 @@
   text-shadow: 0 0 8px rgba(255, 0, 255, 0.6);
 }
 
+/* Onglets de mode de déploiement */
+.deployment-mode-tabs {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 25px;
+  justify-content: center;
+}
+
+.mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 25px;
+  background: rgba(15, 20, 45, 0.6);
+  border: 2px solid rgba(0, 255, 255, 0.3);
+  border-radius: 10px;
+  color: rgba(0, 255, 255, 0.7);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mode-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.mode-tab:hover::before {
+  left: 100%;
+}
+
+.mode-tab:hover {
+  border-color: rgba(0, 255, 255, 0.6);
+  color: rgba(0, 255, 255, 0.9);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.mode-tab.active {
+  background: rgba(0, 255, 255, 0.1);
+  border-color: #00ffff;
+  color: #00ffff;
+  box-shadow:
+    0 0 20px rgba(0, 255, 255, 0.4),
+    inset 0 0 15px rgba(0, 255, 255, 0.1);
+}
+
+.mode-tab.active .tab-icon {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.tab-icon {
+  font-size: 1.5rem;
+}
+
+.tab-label {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 3px rgba(0, 255, 255, 0.5));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 8px rgba(0, 255, 255, 0.8));
+  }
+}
+
 .simulation-form {
   display: flex;
   flex-direction: column;
@@ -953,6 +1037,17 @@ select.form-input option {
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
 }
 
+.capacity-widget.capacity-error {
+  border-color: rgba(255, 153, 0, 0.6);
+  box-shadow: 0 0 15px rgba(255, 153, 0, 0.3);
+  background: rgba(15, 20, 45, 0.8);
+}
+
+.capacity-widget.capacity-error .capacity-title {
+  color: #ff9900;
+  text-shadow: 0 0 8px rgba(255, 153, 0, 0.6);
+}
+
 .capacity-header {
   display: flex;
   align-items: center;
@@ -1016,6 +1111,30 @@ select.form-input option {
 .stat-value.stat-zero {
   color: #ff0066;
   text-shadow: 0 0 10px rgba(255, 0, 102, 0.8);
+}
+
+.stat-value.stat-error {
+  color: #ff9900;
+  text-shadow: 0 0 10px rgba(255, 153, 0, 0.8);
+}
+
+.capacity-error-message {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(255, 153, 0, 0.1);
+  border: 1px solid rgba(255, 153, 0, 0.3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.9rem;
+  color: #ff9900;
+  font-weight: 600;
+}
+
+.capacity-error-message .error-icon {
+  font-size: 1.2rem;
 }
 
 .capacity-divider {
